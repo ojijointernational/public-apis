@@ -1,0 +1,46 @@
+from fastapi import FastAPI, Depends
+from fastapi_users import FastAPIUser, fastapi_users
+from fastapi_users.authentication import CookieAuthentication, JWTAuthentication
+from fastapi_users.database import SQLAlchemyBaseUserDatabase, SQLAlchemyUserDatabase
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# Database Configuration (Replace with your actual database URL)
+DATABASE_URL = "postgresql://user:password@host:port/database"
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# User Database
+class User(FastAPIUser):
+    pass  # You can add custom fields here if needed
+
+async def get_user_db():
+    yield SQLAlchemyUserDatabase(SessionLocal, User)
+
+# Authentication Methods
+cookie_auth = CookieAuthentication(name="ojijointernational_session", secret_key="YOUR_COOKIE_SECRET_KEY") # Replace with a strong secret
+jwt_auth = JWTAuthentication(secret_key="YOUR_JWT_SECRET_KEY", lifetime_seconds=3600) # Replace with a strong secret
+
+# FastAPI Users Instance
+app = FastAPI()
+fastapi_users = fastapi_users.get_fastapi_users(
+    db=get_user_db(),
+    [cookie_auth, jwt_auth],
+    User,
+    User
+)
+
+app.include_router(
+    fastapi_users.get_router(prefix="/auth", tags=["auth"])
+)
+from fastapi import FastAPI
+from auth import app as auth_app
+
+app = FastAPI()
+app.include_router(auth_app)
+
+@app.get("/")
+async def read_root():
+    return {"Hello": "World"}
+uvicorn main:app --reload --port 8000
